@@ -60,143 +60,196 @@ angular
 			}
 		};
 	}])
-	.controller('swaggerUiController', ['$scope', '$http', '$location', '$q', 'swaggerClient', 'swaggerModules', 'swagger2JsonParser',
-		function($scope, $http, $location, $q, swaggerClient, swaggerModules, swagger2JsonParser) {
+	.factory('swaggerUiBaseController', ['$http', '$location', '$q', 'swaggerClient', 'swaggerModules', 'swagger2JsonParser',
+		function($http, $location, $q, swaggerClient, swaggerModules, swagger2JsonParser) {
+			var SwaggerUiBaseController,
+				bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
-			var swagger;
+      SwaggerUiBaseController = (function() {
+				function SwaggerUiBaseController(vm) {
+					this.onError = bind(this.onError, this);
+					this.expand = bind(this.expand, this);
+					this.permalink = bind(this.permalink, this);
+					this.submitExplorer = bind(this.submitExplorer, this);
+					this.loadSwagger = bind(this.loadSwagger, this);
+					this.swaggerLoaded = bind(this.swaggerLoaded, this);
+					this.load = bind(this.load, this);
+					this.swaggerParsed = bind(this.swaggerParsed, this);
+					this.swagger = null;
 
-			// WARNING authentication is not implemented, please use 'api-explorer-transform' directive's param to customize API calls
+					this.vm = vm;
+					this.vm.expand = this.expand;
+					this.vm.permalink = this.permalink;
+          this.vm.submitExplorer = this.submitExplorer;
 
-			// add default Swagger parser (JSON)
-			swaggerModules.add(swaggerModules.PARSE, swagger2JsonParser);
+					// add default Swagger parser (JSON)
+					swaggerModules.add(swaggerModules.PARSE, swagger2JsonParser);
 
-			/**
-			 * Load Swagger descriptor
-			 */
-			function loadSwagger(url, callback) {
-				$scope.loading = true;
-				var options = {
-					method: 'GET',
-					url: url
+				}
+
+        SwaggerUiBaseController.prototype.onError = function() {
+
 				};
-				swaggerModules
-					.execute(swaggerModules.BEFORE_LOAD, options)
-					.then(function() {
-						$http(options)
-							.success(callback)
-							.error(function(data, status) {
-								onError({
-									code: status,
-									message: data
+
+				/**
+				 * Load Swagger descriptor
+				 */
+        SwaggerUiBaseController.prototype.loadSwagger = function(url, callback) {
+          var _this = this;
+					this.vm.loading = true;
+					var options = {
+						method: 'GET',
+						url: url
+					};
+					swaggerModules
+						.execute(swaggerModules.BEFORE_LOAD, options)
+						.then(function() {
+							$http(options)
+								.success(callback)
+								.error(function(data, status) {
+                  _this.onError({
+										code: status,
+										message: data
+									});
 								});
-							});
-					})
-					.catch(onError);
-			}
+						})
+						.catch(_this.onError);
+				};
 
-			/**
-			 * Swagger descriptor has been loaded, launch parsing
-			 */
-			function swaggerLoaded(swaggerUrl, swaggerType) {
-				$scope.loading = false;
-				var parseResult = {};
-				// execute modules
-				$scope.parser = $scope.parser || 'auto';
-				swaggerModules
-					.execute(swaggerModules.PARSE, $scope.parser, swaggerUrl, swaggerType, swagger, $scope.trustedSources, parseResult)
-					.then(function(executed) {
-						if (executed) {
-							swaggerParsed(parseResult);
-						} else {
-							onError({
-								code: 415,
-								message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + swagger.swagger
-							});
+				/**
+				 * Swagger descriptor has been loaded, launch parsing
+				 */
+        SwaggerUiBaseController.prototype.swaggerLoaded = function (swaggerUrl, swaggerType) {
+          var _this = this;
+          _this.vm.loading = false;
+					var parseResult = {};
+					// execute modules
+          _this.vm.parser = _this.vm.parser || 'auto';
+					swaggerModules
+						.execute(
+							swaggerModules.PARSE,
+              _this.vm.parser,
+							swaggerUrl,
+							swaggerType,
+              _this.swagger,
+              _this.vm.trustedSources,
+              parseResult
+						)
+						.then(function(executed) {
+							if (executed) {
+                _this.swaggerParsed(parseResult);
+							} else {
+                _this.onError({
+									code: 415,
+									message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + this.swagger.swagger
+								});
+							}
+						})
+						.catch(_this.onError);
+				};
+
+				/**
+				 * Swagger descriptor has parsed, launch display
+				 */
+        SwaggerUiBaseController.prototype.swaggerParsed = function (parseResult) {
+          var _this = this;
+					// execute modules
+					swaggerModules
+						.execute(swaggerModules.BEFORE_DISPLAY, parseResult)
+						.then(function() {
+							// display swagger UI
+              _this.vm.infos = parseResult.infos;
+              _this.vm.form = parseResult.form;
+              _this.vm.resources = parseResult.resources;
+						})
+						.catch(_this.onError);
+				};
+
+        SwaggerUiBaseController.prototype.load = function (url) {
+          var _this = this;
+          _this.vm.infos = {};
+          _this.vm.resources = [];
+          _this.vm.form = {};
+					if (url && url !== '') {
+						if (_this.vm.loading) {
+							//TODO cancel current loading swagger
 						}
-					})
-					.catch(onError);
-			}
+						// load Swagger descriptor
+            _this.loadSwagger(url, function(data, status, headers) {
+              _this.swagger = data;
+							// execute modules
+							swaggerModules
+								.execute(swaggerModules.BEFORE_PARSE, url, _this.swagger)
+								.then(function() {
+									var contentType = headers()['content-type'] || 'application/json',
+										swaggerType = contentType.split(';')[0];
 
-			/**
-			 * Swagger descriptor has parsed, launch display
-			 */
-			function swaggerParsed(parseResult) {
-				// execute modules
-				swaggerModules
-					.execute(swaggerModules.BEFORE_DISPLAY, parseResult)
-					.then(function() {
-						// display swagger UI
-						$scope.infos = parseResult.infos;
-						$scope.form = parseResult.form;
-						$scope.resources = parseResult.resources;
-					})
-					.catch(onError);
-			}
+                  _this.swaggerLoaded(url, swaggerType);
+								})
+								.catch(_this.onError);
+						});
+					}
+				};
 
-			function onError(error) {
+				/**
+				 * show all resource's operations as list or as expanded list
+				 */
+        SwaggerUiBaseController.prototype.expand = function(resource, expandOperations) {
+					resource.open = true;
+					for (var i = 0, op = resource.operations, l = op.length; i < l; i++) {
+						op[i].open = expandOperations;
+					}
+				};
+
+				/**
+				 * show all resource's operations as list or as expanded list
+				 */
+        SwaggerUiBaseController.prototype.permalink = function(name) {
+					if (this.vm.permalinks) {
+						$location.search('swagger', name);
+					}
+				};
+
+				/**
+				 * show all resource's operations as list or as expanded list
+				 */
+        SwaggerUiBaseController.prototype.submitExplorer = function(operation) {
+					operation.loading = true;
+					swaggerClient
+						.send(this.swagger, operation, this.vm.form[operation.id])
+						.then(function(result) {
+							operation.loading = false;
+							operation.explorerResult = result;
+						});
+				};
+
+				return SwaggerUiBaseController;
+
+			})();
+
+			return SwaggerUiBaseController;
+		}
+	])
+	.controller('swaggerUiController', ['$scope', 'swaggerUiBaseController',
+		function($scope, SwaggerUiBaseController) {
+
+			var onError = function (error) {
 				$scope.loading = false;
 				if (typeof $scope.errorHandler === 'function') {
 					$scope.errorHandler(error.message, error.code);
 				} else {
 					console.error(error.code, 'AngularSwaggerUI: ' + error.message);
 				}
-			}
+			};
+
+			var controller = new SwaggerUiBaseController($scope);
+      controller.onError = onError;
 
 			$scope.$watch('url', function(url) {
-				//reset
-				$scope.infos = {};
-				$scope.resources = [];
-				$scope.form = {};
-				if (url && url !== '') {
-					if ($scope.loading) {
-						//TODO cancel current loading swagger
-					}
-					// load Swagger descriptor
-					loadSwagger(url, function(data, status, headers) {
-						swagger = data;
-						// execute modules
-						swaggerModules
-							.execute(swaggerModules.BEFORE_PARSE, url, swagger)
-							.then(function() {
-								var contentType = headers()['content-type'] || 'application/json',
-									swaggerType = contentType.split(';')[0];
-
-								swaggerLoaded(url, swaggerType);
-							})
-							.catch(onError);
-					});
-				}
+        if (url) {
+          controller.load(url);
+        }
 			});
-
-			/**
-			 * show all resource's operations as list or as expanded list
-			 */
-			$scope.expand = function(resource, expandOperations) {
-				resource.open = true;
-				for (var i = 0, op = resource.operations, l = op.length; i < l; i++) {
-					op[i].open = expandOperations;
-				}
-			};
-
-			$scope.permalink = function(name) {
-				if ($scope.permalinks) {
-					$location.search('swagger', name);
-				}
-			};
-
-			/**
-			 * sends a sample API request
-			 */
-			$scope.submitExplorer = function(operation) {
-				operation.loading = true;
-				swaggerClient
-					.send(swagger, operation, $scope.form[operation.id])
-					.then(function(result) {
-						operation.loading = false;
-						operation.explorerResult = result;
-					});
-			};
-
 		}
 	])
 	.directive('fileInput', function() {
@@ -260,7 +313,8 @@ angular
 			var deferred = $q.defer(),
 				query = {},
 				headers = {},
-				path = operation.path;
+				path = operation.path,
+				body = undefined;
 
 			// build request parameters
 			for (var i = 0, params = operation.parameters || [], l = params.length; i < l; i++) {
@@ -283,23 +337,23 @@ angular
 						}
 						break;
 					case 'formData':
-						values.body = values.body || new FormData();
+						body = body || new FormData();
 						if (!!value) {
 							if (param.type === 'file') {
 								values.contentType = undefined; // make browser defining it by himself
 							}
-							values.body.append(param.name, value);
+							body.append(param.name, value);
 						}
 						break;
 					case 'body':
-						values.body = values.body || value;
+						body = body || value;
 						break;
 				}
 			}
 
 			// add headers
 			headers.Accept = values.responseType;
-			headers['Content-Type'] = values.body ? values.contentType : 'text/plain';
+			headers['Content-Type'] = body ? values.contentType : 'text/plain';
 
 			// build request
 			var baseUrl = [
@@ -312,7 +366,7 @@ angular
 					method: operation.httpMethod,
 					url: baseUrl + path,
 					headers: headers,
-					data: values.body,
+					data: body,
 					params: query
 				},
 				callback = function(data, status, headers, config) {
@@ -344,6 +398,7 @@ angular
 		};
 
 	}]);
+
 /*
  * Orange angular-swagger-ui - v0.2.7
  *

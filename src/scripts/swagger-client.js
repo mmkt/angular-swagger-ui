@@ -40,10 +40,10 @@ angular
 		/**
 		 * Send API explorer request
 		 */
-		this.send = function(swagger, operation, values) {
+		this.send = function(swagger, operation, values, customHeaders) {
 			var deferred = $q.defer(),
 				query = {},
-				headers = {},
+				headers = customHeaders,
 				path = operation.path,
 				body = null;
 

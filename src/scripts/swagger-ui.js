@@ -141,7 +141,7 @@ angular
 							} else {
                 _this.onError({
 									code: 415,
-									message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + this.swagger.swagger
+									message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + _this.swagger.swagger
 								});
 							}
 						})

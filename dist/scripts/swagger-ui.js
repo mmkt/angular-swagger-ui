@@ -76,6 +76,7 @@ angular
 					this.load = bind(this.load, this);
 					this.swaggerParsed = bind(this.swaggerParsed, this);
 					this.swagger = null;
+					this.headers = {};
 
 					this.vm = vm;
 					this.vm.expand = this.expand;
@@ -216,7 +217,7 @@ angular
         SwaggerUiBaseController.prototype.submitExplorer = function(operation) {
 					operation.loading = true;
 					swaggerClient
-						.send(this.swagger, operation, this.vm.form[operation.id])
+						.send(this.swagger, operation, this.vm.form[operation.id], this.headers)
 						.then(function(result) {
 							operation.loading = false;
 							operation.explorerResult = result;
@@ -244,6 +245,10 @@ angular
 
 			var controller = new SwaggerUiBaseController($scope);
       controller.onError = onError;
+			controller.headers = {
+				'Access-Token': 'My Token',
+				'token-type': 'Bearer'
+			};
 
 			$scope.$watch('url', function(url) {
         if (url) {
@@ -309,10 +314,10 @@ angular
 		/**
 		 * Send API explorer request
 		 */
-		this.send = function(swagger, operation, values) {
+		this.send = function(swagger, operation, values, customHeaders) {
 			var deferred = $q.defer(),
 				query = {},
-				headers = {},
+				headers = customHeaders,
 				path = operation.path,
 				body = null;
 

@@ -141,7 +141,7 @@ angular
 							} else {
                 _this.onError({
 									code: 415,
-									message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + this.swagger.swagger
+									message: 'no parser found for Swagger descriptor of type ' + swaggerType + ' and version ' + _this.swagger.swagger
 								});
 							}
 						})
@@ -277,7 +277,7 @@ angular
 
 angular
 	.module('swaggerUi')
-	.service('swaggerClient', ['$q', '$http', 'swaggerModules', function($q, $http, swaggerModules) {
+	.service('swaggerClient', ['$q', '$http', 'swaggerModules', '$location', function($q, $http, swaggerModules, $location) {
 
 		/**
 		 * format API explorer response before display
@@ -314,7 +314,7 @@ angular
 				query = {},
 				headers = {},
 				path = operation.path,
-				body = undefined;
+				body = null;
 
 			// build request parameters
 			for (var i = 0, params = operation.parameters || [], l = params.length; i < l; i++) {
@@ -356,13 +356,19 @@ angular
 			headers['Content-Type'] = body ? values.contentType : 'text/plain';
 
 			// build request
-			var baseUrl = [
+			var baseUrl = '';
+			if ( swagger.host === ($location.host() + ':' + $location.port()) ) {
+				baseUrl = swagger.basePath || '';
+			} else {
+				baseUrl = [
 					swagger.schemes[0],
 					'://',
 					swagger.host,
 					swagger.basePath || ''
-				].join(''),
-				options = {
+				].join('');
+			}
+
+			var	options = {
 					method: operation.httpMethod,
 					url: baseUrl + path,
 					headers: headers,

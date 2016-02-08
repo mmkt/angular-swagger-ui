@@ -88,7 +88,7 @@ angular
 
 			// build request
 			var baseUrl = '';
-			if ( swagger.host === ($location.host() + ':' + $location.port()) ) {
+			if ( swagger.host === $location.host() ) {
 				baseUrl = swagger.basePath || '';
 			} else {
 				baseUrl = [
